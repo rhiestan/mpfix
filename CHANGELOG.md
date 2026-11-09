@@ -55,6 +55,13 @@ ulp plus about 2^-60.
 - CMake: the target `mpfix::mpfix`, from `add_subdirectory`, `FetchContent` or
   an installed package found with `find_package(mpfix)`.
 
+### Debugging
+
+`debug/` has natvis visualizers for Visual Studio, VS Code, CLion and WinDbg,
+embedded in the PDB when MSVC links `mpfix::mpfix`, and pretty printers for gdb
+and summaries for lldb that show the exact value of a Float, Complex and Boost
+number.
+
 ### Speed
 
 On an AMD Ryzen 9 5950X with Clang, against MPFR 4.3 with the steps that

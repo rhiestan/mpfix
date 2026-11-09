@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Visual Studio visualizers for mpfix: Float, Complex and the Boost backend.
+  Also used by Visual Studio Code with the C++ debugger (cppvsdbg), by CLion
+  and by lldb on Windows.
+
+  A Float is stored as limbs_ (uint64, least significant first, the top bit of
+  the last one always set for a finite non-zero value), biased_exponent_ (the
+  exponent XOR 0x80000000, so zero is stored as 0, infinity as 0xFFFFFFFE and
+  NaN as 0xFFFFFFFF) and negative_. The value is 1.f * 2^exponent, with the
+  significand's top bit as the 1.
+
+  The natvis language has no big numbers, so the summary is the value as a
+  double with its 17 digits, "~" when it is within the double range, and
+  "mantissa * 2^exponent" otherwise. The exact digits are in to_string(x), and
+  printed in full by the gdb and lldb scripts of this directory.
+-->
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+
+  <Type Name="mpfix::Float&lt;*,*&gt;">
+    <Intrinsic Name="nv_exponent" Expression="(int)(biased_exponent_ ^ 0x80000000)"/>
+    <Intrinsic Name="nv_top" Expression="limbs_._Elems[($T1 + 63) / 64 - 1]"/>
+    <!-- The significand as a double in [1, 2). -->
+    <Intrinsic Name="nv_mantissa" Expression="(double)nv_top() / 9223372036854775808.0"/>
+    <!-- 2^n for 0 <= n < 1024, from the bits of n. -->
+    <Intrinsic Name="nv_pow2" Expression="((n &amp; 1) ? 2.0 : 1.0) * ((n &amp; 2) ? 4.0 : 1.0) * ((n &amp; 4) ? 16.0 : 1.0) * ((n &amp; 8) ? 256.0 : 1.0) * ((n &amp; 16) ? 65536.0 : 1.0) * ((n &amp; 32) ? 4294967296.0 : 1.0) * ((n &amp; 64) ? 1.8446744073709552e19 : 1.0) * ((n &amp; 128) ? 3.4028236692093846e38 : 1.0) * ((n &amp; 256) ? 1.157920892373162e77 : 1.0) * ((n &amp; 512) ? 1.3407807929942597e154 : 1.0)">
+      <Parameter Name="n" Type="int"/>
+    </Intrinsic>
+    <Intrinsic Name="nv_approximation" Expression="((negative_ != 0) ? -1.0 : 1.0) * nv_mantissa() * ((nv_exponent() &gt;= 0) ? nv_pow2(nv_exponent()) : 1.0 / nv_pow2(-nv_exponent()))"/>
+    <Intrinsic Name="nv_is_zero" Expression="biased_exponent_ == 0"/>
+    <Intrinsic Name="nv_is_inf" Expression="biased_exponent_ == 0xFFFFFFFE"/>
+    <Intrinsic Name="nv_is_nan" Expression="biased_exponent_ == 0xFFFFFFFF"/>
+    <Intrinsic Name="nv_is_quiet" Expression="(nv_top() &amp; 0x4000000000000000) != 0"/>
+    <Intrinsic Name="nv_in_range" Expression="nv_exponent() &gt; -1000 &amp;&amp; nv_exponent() &lt; 1000"/>
+
+    <DisplayString Condition="nv_is_zero() &amp;&amp; negative_ == 0">0</DisplayString>
+    <DisplayString Condition="nv_is_zero()">-0</DisplayString>
+    <DisplayString Condition="nv_is_inf() &amp;&amp; negative_ == 0">inf</DisplayString>
+    <DisplayString Condition="nv_is_inf()">-inf</DisplayString>
+    <DisplayString Condition="nv_is_nan() &amp;&amp; nv_is_quiet() &amp;&amp; negative_ == 0">nan</DisplayString>
+    <DisplayString Condition="nv_is_nan() &amp;&amp; nv_is_quiet()">-nan</DisplayString>
+    <DisplayString Condition="nv_is_nan() &amp;&amp; negative_ == 0">snan</DisplayString>
+    <DisplayString Condition="nv_is_nan()">-snan</DisplayString>
+    <DisplayString Condition="nv_in_range()">~{nv_approximation()}</DisplayString>
+    <DisplayString Condition="negative_ == 0">{nv_mantissa()} * 2^{nv_exponent()}</DisplayString>
+    <DisplayString>-{nv_mantissa()} * 2^{nv_exponent()}</DisplayString>
+
+    <Expand>
+      <Item Name="[negative]">negative_ != 0</Item>
+      <Item Name="[exponent]" Condition="!nv_is_zero() &amp;&amp; !nv_is_inf() &amp;&amp; !nv_is_nan()">nv_exponent()</Item>
+      <Item Name="[limbs]">limbs_</Item>
+      <Item Name="[precision]">$T1</Item>
+      <Item Name="[exponent bits]">$T2</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="mpfix::Complex&lt;*&gt;">
+    <DisplayString>({re_}, {im_})</DisplayString>
+    <Expand>
+      <Item Name="[real]">re_</Item>
+      <Item Name="[imag]">im_</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="mpfix::boost_backend&lt;*,*&gt;">
+    <DisplayString>{value_}</DisplayString>
+    <Expand>
+      <ExpandedItem>value_</ExpandedItem>
+    </Expand>
+  </Type>
+
+  <Type Name="boost::multiprecision::number&lt;mpfix::boost_backend&lt;*,*&gt;,*&gt;">
+    <DisplayString>{m_backend}</DisplayString>
+    <Expand>
+      <ExpandedItem>m_backend</ExpandedItem>
+    </Expand>
+  </Type>
+
+</AutoVisualizer>

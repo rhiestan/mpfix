@@ -70,6 +70,18 @@ mpfix_add_test(deps_smoke_test mpfix_eigen)
 mpfix_add_test(eigen_test mpfix_eigen)
 mpfix_add_test(boost_test mpfix_boost)
 
+# The decoding of the gdb and lldb scripts against the library's own text.
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+  add_executable(debug_dump debug_dump.cpp)
+  target_link_libraries(debug_dump PRIVATE mpfix)
+  mpfix_warnings(debug_dump)
+  add_test(NAME debug_visualizer_format
+           COMMAND "${Python3_EXECUTABLE}" -I
+                   "${PROJECT_SOURCE_DIR}/debug/test_mpfix_format.py"
+                   $<TARGET_FILE:debug_dump>)
+endif()
+
 # Berkeley TestFloat: with MPFIX_TESTFLOAT_GEN set to a testfloat_gen, a test
 # for each function it generates cases for, in binary16, 32, 64 and 128. The
 # checker is always built, so that it compiles everywhere.

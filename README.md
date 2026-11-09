@@ -112,6 +112,12 @@ Boost's generic code or Boost.Math. Expression templates are off by default;
 `number<mpfix::boost_backend<P, E>, et_on>` works too. Boost is not a
 dependency of the library; only this header needs it.
 
+### Debugging
+
+`debug/` has Visual Studio visualizers (natvis, loaded automatically when
+linking `mpfix::mpfix` with MSVC), and gdb and lldb scripts that print a Float
+as the text `to_string` gives; see [debug/README.md](debug/README.md).
+
 ## Building
 
 The library is header-only and needs nothing but a C++20 compiler: add

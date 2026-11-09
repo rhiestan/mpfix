@@ -39,6 +39,21 @@ target_include_directories(mpfix INTERFACE
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_compile_features(mpfix INTERFACE cxx_std_20)
 
+# Visual Studio's debugger shows a Float as its value, through debug/mpfix.natvis,
+# which the linker puts in the PDB of every program that uses the library. The
+# Visual Studio generators take it as a source file, and ignore /NATVIS given
+# as a link option; the others take the option.
+if(MSVC)
+  if(CMAKE_GENERATOR MATCHES "Visual Studio")
+    target_sources(mpfix INTERFACE
+      "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/debug/mpfix.natvis>")
+  else()
+    target_link_options(mpfix INTERFACE
+      "$<BUILD_INTERFACE:/NATVIS:${PROJECT_SOURCE_DIR}/debug/mpfix.natvis>"
+      "$<INSTALL_INTERFACE:/NATVIS:$<INSTALL_PREFIX>/${CMAKE_INSTALL_DATADIR}/mpfix/debug/mpfix.natvis>")
+  endif()
+endif()
+
 # cmake --install puts the headers and a package configuration in place, for
 # find_package(mpfix) and the target mpfix::mpfix.
 option(MPFIX_INSTALL "Generate the install rules" ${PROJECT_IS_TOP_LEVEL})
@@ -59,6 +74,11 @@ if(MPFIX_INSTALL)
                 "${PROJECT_BINARY_DIR}/mpfixConfigVersion.cmake"
           DESTINATION "${mpfix_config_dir}")
   install(FILES LICENSE DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/mpfix")
+  # The scripts of the debuggers: natvis for Visual Studio, pretty printers for
+  # gdb and summaries for lldb.
+  install(FILES debug/mpfix.natvis debug/mpfix_format.py debug/mpfix_gdb.py
+                debug/mpfix_lldb.py
+          DESTINATION "${CMAKE_INSTALL_DATADIR}/mpfix/debug")
 endif()
 
 include(cmake/mpfixWarnings.cmake)
