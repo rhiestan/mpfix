@@ -76,3 +76,33 @@ mpfix_warnings(bench_batch)
 target_link_libraries(bench_batch PRIVATE mpfix hwy)
 target_compile_options(bench_batch PRIVATE
   $<$<CXX_COMPILER_ID:Clang,GNU,AppleClang>:-march=native>)
+
+# CORE-MATH's correctly rounded binary64 functions, if its tree exists and the C
+# compiler is GCC or Clang (the sources use __int128): the double benchmark
+# compares mpfix's double functions with them. The tree is used as it is, with
+# the flags of its own scripts.
+set(MPFIX_CORE_MATH_DIR "${mpfix_parent_dir}/core-math-master" CACHE PATH
+    "CORE-MATH source tree for the double benchmark, if it exists")
+if(EXISTS "${MPFIX_CORE_MATH_DIR}/src/binary64/exp/exp.c" AND
+   CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
+  set(core_math_sources "${CMAKE_CURRENT_SOURCE_DIR}/core_math_support.c")
+  foreach(function exp exp2 exp10 expm1 exp2m1 exp10m1 log log2 log10 log1p
+          log2p1 log10p1 sinh cosh tanh asinh acosh atanh sin cos tan asin acos
+          atan atan2 pow cbrt hypot erf erfc tgamma lgamma)
+    list(APPEND core_math_sources
+         "${MPFIX_CORE_MATH_DIR}/src/binary64/${function}/${function}.c")
+  endforeach()
+  add_library(core_math_binary64 STATIC ${core_math_sources})
+  target_compile_options(core_math_binary64 PRIVATE -O3 -march=native -w)
+  set_source_files_properties(
+    "${MPFIX_CORE_MATH_DIR}/src/binary64/lgamma/lgamma.c" PROPERTIES
+    COMPILE_DEFINITIONS signgam=mpfix_bench_signgam
+    COMPILE_OPTIONS "-include;${CMAKE_CURRENT_SOURCE_DIR}/core_math_support.h")
+
+  add_executable(bench_core_math bench_core_math.cpp)
+  mpfix_warnings(bench_core_math)
+  target_link_libraries(bench_core_math PRIVATE mpfix core_math_binary64)
+  target_compile_options(bench_core_math PRIVATE
+    $<$<CXX_COMPILER_ID:Clang,GNU,AppleClang>:-march=native>)
+  message(STATUS "Benchmarking against CORE-MATH: ${MPFIX_CORE_MATH_DIR}")
+endif()

@@ -34,6 +34,12 @@ optional `mpfix::Context`; the operators round to nearest-even without flags.
   `erfc`, `tgamma`, `lgamma` and `pi<F>()`. Exact results raise no flags.
   These need E of at most 26.
 
+### Double
+
+`mpfix/double_math.h` has the functions of `mpfix/math.h` for `double`, such as
+`mpfix::exp(double)`, correctly rounded and identical to CORE-MATH's. They are
+the generic functions at 53 bits, 7 to 107 times slower than CORE-MATH.
+
 ### Complex numbers
 
 `mpfix/complex.h` has the interface of `std::complex` and the special values of

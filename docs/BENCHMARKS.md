@@ -350,6 +350,54 @@ binary512.
 The first sin also computes pi and 2/pi, for all formats, in 3 ms; its own
 tables take 0.4 ms at binary256 and 1 ms at binary512.
 
+## double against CORE-MATH
+
+`mpfix/double_math.h` has the functions of `mpfix/math.h` for `double`: the
+generic functions in `Float<53, 11>`, which is binary64. `bench/bench_core_math`
+compares them with [CORE-MATH](https://core-math.gitlabpages.inria.fr/)'s
+correctly rounded binary64 functions (compiled with `-O3 -march=native`, its
+own flags) and with the C library's, here the Windows UCRT. Clang 22, Ryzen 9
+5950X, single thread, nanoseconds per call as throughput, on arguments as for
+the elementary functions above.
+
+**Results.** CORE-MATH and mpfix are both correctly rounded, so they must give
+the same bits. On 1,000,000 random arguments in each of two sets per function,
+typical arguments and the function's whole range (subnormals and huge
+exponents included), they differ in none of 2,000,000 results per function, for
+all 32 functions: `exp`, `exp2`, `exp10`, `expm1`, `exp2m1`, `exp10m1`, `log`,
+`log2`, `log10`, `log1p`, `log2p1`, `log10p1`, the hyperbolic and trigonometric
+functions and their inverses, `atan2`, `pow`, `cbrt`, `hypot`, `erf`, `erfc`,
+`tgamma` and `lgamma`. Random arguments do not find hard-to-round cases, which
+CORE-MATH's own worst-case checks do; they are not run here. The UCRT's
+results differ from the correctly rounded ones for 0.02% (`log`) to 43%
+(`tgamma`, `erf`) of the arguments, by 1 to 5 ulps for most functions, and by
+much more in `lgamma` (46 ulps) and `tgamma` (up to 5e9 ulps, near its poles).
+
+**Speed.** mpfix is 7 to 107 times slower:
+
+| function | CORE-MATH ns | mpfix ns | ratio | UCRT ns |
+| --- | ---: | ---: | ---: | ---: |
+| exp | 3.9 | 241 | 62x | 3.7 |
+| log | 5.5 | 316 | 57x | 4.1 |
+| sin | 14.3 | 291 | 20x | 3.4 |
+| cos | 6.5 | 292 | 45x | 3.4 |
+| tan | 15.5 | 310 | 20x | 5.1 |
+| atan | 9.0 | 251 | 28x | 4.9 |
+| sinh | 5.9 | 308 | 52x | 6.9 |
+| pow | 16.2 | 603 | 37x | 12.3 |
+| cbrt | 26.2 | 191 | 7x | 14.4 |
+| hypot | 8.9 | 86 | 10x | 4.5 |
+| erf | 6.9 | 658 | 95x | 4.7 |
+| tgamma | 18.3 | 1480 | 81x | 18.8 |
+| lgamma | 18.0 | 1932 | 107x | 33.6 |
+
+The generic functions are made for 113 bits and more: by their design they work
+in a software format of two or more limbs, with a table-driven argument
+reduction and a series in multi-limb arithmetic, then check an error bound and
+round. CORE-MATH at 53 bits uses a table and a short polynomial in hardware
+`double` arithmetic. This explanation is from the code; mpfix at 53 bits has
+not been profiled.
+
 ## Batch prototype
 
 `bench/bench_batch.cpp` runs binary256 on Highway's AVX2 target with 4 lanes, in
