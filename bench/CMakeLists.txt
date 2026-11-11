@@ -106,3 +106,41 @@ if(EXISTS "${MPFIX_CORE_MATH_DIR}/src/binary64/exp/exp.c" AND
     $<$<CXX_COMPILER_ID:Clang,GNU,AppleClang>:-march=native>)
   message(STATUS "Benchmarking against CORE-MATH: ${MPFIX_CORE_MATH_DIR}")
 endif()
+
+# CORE-MATH's binary128 functions, with GCC, for __float128: the same
+# comparison for mpfix's binary128, against CORE-MATH and libquadmath.
+if(EXISTS "${MPFIX_CORE_MATH_DIR}/src/binary128/exp/expq.c" AND
+   CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set(core_math_128_sources)
+  foreach(function exp/expq exp2/exp2q exp10/exp10q expm1/expm1q log/logq
+          sin/sinq cos/cosq tan/tanq asin/asinq acos/acosq atan/atanq
+          atan2/atan2q cbrt/cbrtq hypot/hypotq)
+    list(APPEND core_math_128_sources
+         "${MPFIX_CORE_MATH_DIR}/src/binary128/${function}.c")
+  endforeach()
+  add_library(core_math_binary128 STATIC ${core_math_128_sources})
+  target_compile_options(core_math_binary128 PRIVATE -O3 -march=native -w)
+  # Each file also defines a plain expq and the like, which forwards to the
+  # C library's expf128, for use as a libm replacement. That would clash with
+  # libquadmath's, and MinGW has no expf128. On Windows, __APPLE__ skips them
+  # and changes nothing else, since the other uses of it are with _WIN32. On
+  # other systems the functions are renamed away; untested.
+  if(WIN32)
+    target_compile_definitions(core_math_binary128 PRIVATE __APPLE__)
+  else()
+    foreach(function exp exp2 exp10 expm1 log sin cos tan asin acos atan atan2
+            cbrt hypot)
+      target_compile_definitions(core_math_binary128 PRIVATE
+        ${function}q=mpfix_bench_unused_${function}q)
+    endforeach()
+  endif()
+
+  add_executable(bench_core_math128 bench_core_math128.cpp)
+  mpfix_warnings(bench_core_math128)
+  target_link_libraries(bench_core_math128 PRIVATE mpfix core_math_binary128
+                        quadmath "${MPFIX_MPFR_LIBRARY}" "${MPFIX_GMP_LIBRARY}")
+  target_include_directories(bench_core_math128 SYSTEM PRIVATE
+    "${MPFIX_GMP_INCLUDE_DIR}" "${MPFIX_MPFR_INCLUDE_DIR}")
+  target_compile_options(bench_core_math128 PRIVATE -march=native)
+  message(STATUS "Benchmarking binary128 against CORE-MATH")
+endif()

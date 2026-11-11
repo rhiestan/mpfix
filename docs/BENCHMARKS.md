@@ -398,6 +398,50 @@ round. CORE-MATH at 53 bits uses a table and a short polynomial in hardware
 `double` arithmetic. This explanation is from the code; mpfix at 53 bits has
 not been profiled.
 
+### binary128 against CORE-MATH
+
+CORE-MATH also has binary128 functions, for 14 of the functions above.
+`bench/bench_core_math128` compares mpfix's binary128 with them and with
+libquadmath's, and takes MPFR as the reference for the results, since the
+three libraries do not always agree. It needs GCC, for `__float128`, so these
+numbers are from MinGW GCC 16.2 with `-O3 -march=native` for all three
+libraries, not from Clang as above, on the same Ryzen 9 5950X. A cell is the
+number of results that differ from MPFR's correctly rounded result, on 20,000
+typical arguments / 20,000 arguments of the function's whole range.
+
+| function | mpfix wrong | CORE-MATH wrong | libquadmath wrong | CORE-MATH ns | mpfix ns | mpfix / CORE-MATH | libquadmath ns |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| exp | 0 / 0 | 0 / 0 | 0 / 0 | 24.6 | 603 | 24.5x | 979 |
+| exp2 | 0 / 0 | 0 / 0 | 600 / 231 | 20.0 | 587 | 29.4x | 1073 |
+| exp10 | 0 / 0 | 0 / 0 | - | 23.5 | 677 | 28.8x | - |
+| expm1 | 0 / 0 | 20000 / 18752 | 448 / 28 | 25.3 | 606 | 24.0x | 820 |
+| log | 0 / 0 | 0 / 0 | 480 / 0 | 29.6 | 504 | 17.1x | 720 |
+| sin | 0 / 0 | 0 / 0 | 124 / 302 | 42.1 | 679 | 16.1x | 435 |
+| cos | 0 / 0 | 0 / 0 | 180 / 266 | 44.1 | 673 | 15.3x | 422 |
+| tan | 0 / 0 | 0 / 0 | 370 / 558 | 61.1 | 724 | 11.8x | 562 |
+| asin | 0 / 0 | 0 / 0 | 632 / 0 | 37.1 | 741 | 20.0x | 783 |
+| acos | 0 / 0 | 0 / 0 | 382 / 1 | 35.2 | 819 | 23.2x | 817 |
+| atan | 0 / 0 | 373 / 0 | 2769 / 10 | 39.6 | 636 | 16.0x | 502 |
+| cbrt | 0 / 0 | 0 / 0 | 1720 / 1746 | 20.3 | 324 | 16.0x | 558 |
+| atan2 | 0 / 0 | 764 / 4 | 3794 / 25 | 48.2 | 631 | 13.1x | 556 |
+| hypot | 0 / 0 | 0 / 0 | 2639 / 11 | 24.2 | 112 | 4.6x | 1143 |
+
+- **mpfix** has no result that differs from MPFR's, for all 14 functions.
+- **CORE-MATH** is 4.6 to 29 times faster than mpfix. `sin`, `cos`, `tan` and
+  `cbrt` are 12 to 16 times faster, and `hypot` 4.6 times.
+- **CORE-MATH's results are wrong in this build** for `expm1` (it returns 0 for
+  small arguments), and for `atan` and `atan2` on some arguments. It reproduces
+  at -O0 and without the `__APPLE__` definition that the benchmark's build uses
+  to skip CORE-MATH's libm wrappers. The cause is not known; CORE-MATH's own
+  checks run on Linux, and Windows, where `long` is 32 bits and `__int128` and
+  `__float128` have their own calling convention, may be what its sources do
+  not expect. The times of `expm1` are of a function that returns early with a
+  wrong value. Running the benchmark on Linux would settle it.
+- **libquadmath** is not correctly rounded: apart from `exp`, it differs from
+  MPFR in 0.6% (`sin`) to 19% (`atan2`) of the typical arguments. It is faster
+  than mpfix for `sin`, `cos`, `tan` and `atan`, about as fast for `asin` and
+  `acos`, and slower for `exp`, `exp2`, `expm1`, `log`, `cbrt` and `hypot` (10 times).
+
 ## Batch prototype
 
 `bench/bench_batch.cpp` runs binary256 on Highway's AVX2 target with 4 lanes, in
